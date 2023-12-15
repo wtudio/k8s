@@ -3,28 +3,38 @@
 ###############################################
 # 配置，需根据实际节点设置
 ###############################################
-if [ $# != 2 ] ; then
-echo "USAGE: $0 node_hostname local_node_ip"
-echo " e.g.: $0 kube-master-1 192.168.0.107"
-exit 1;
+
+find_first_ipv4_address() {
+    ip addr | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}' | cut -d/ -f1 | head -n 1
+}
+
+if [ $# == 1 ] ; then
+  node_hostname=$1
+  local_node_ip=$(find_first_ipv4_address)
+elif [ $# == 2 ] ; then
+  node_hostname=$1
+  local_node_ip=$2
+else
+  echo "USAGE: $0 node_hostname local_node_ip"
+  echo " e.g.: $0 kube-worker-1 192.168.0.107"
+  exit 1;
 fi
 
-node_hostname=$1
-local_node_ip=$2
+echo "init worker node, node_hostname: $node_hostname, local_node_ip: $local_node_ip"
 
 ###############################################
 # 修改host
 ###############################################
 hostnamectl set-hostname ${node_hostname}
-sed -i "s/debian1012/${node_hostname}/g" /etc/hosts
+sed -i "s/debian/${node_hostname}/g" /etc/hosts
 echo -e "127.0.0.1\t${node_hostname}" >> /etc/hosts
 echo -e "${local_node_ip}\t${node_hostname}" >> /etc/hosts
 
 ###############################################
 # 安装基础软件
 ###############################################
-apt-get update && apt-get upgrade
-apt-get install -y curl apt-transport-https ca-certificates gnupg lsb-release
+apt update && apt upgrade
+apt install -y curl apt-transport-https ca-certificates gnupg lsb-release
 
 ###############################################
 # 安装containerd.io
@@ -34,11 +44,12 @@ echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt update
-apt-get install -y containerd.io
+apt install -y containerd.io
 
+# containerd中一些镜像地址国内访问不了，得修改为阿里云的
 containerd config default > /etc/containerd/config.toml
 
-sed -i 's#sandbox_image = "k8s.gcr.io/pause:3.6"#sandbox_image = "registry.aliyuncs.com/google_containers/pause:3.6"#g' /etc/containerd/config.toml
+sed -i 's#sandbox_image = "registry.k8s.io/pause:3.6"#sandbox_image = "registry.aliyuncs.com/google_containers/pause:3.6"#g' /etc/containerd/config.toml
 
 sed -i '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors]/a\        \[plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]' /etc/containerd/config.toml
 sed -i '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]/a\          endpoint = \["registry.aliyuncs.com\/google_containers"]' /etc/containerd/config.toml
@@ -77,6 +88,7 @@ sysctl --system
 modprobe br_netfilter
 sysctl -p /etc/sysctl.d/k8s.conf
 
+echo 1 > /proc/sys/net/ipv4/ip_forward
 echo -e "echo 1 > /proc/sys/net/ipv4/ip_forward" >> $HOME/.bashrc
 
 ###############################################
@@ -86,5 +98,5 @@ curl https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | apt-key add -
 cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
 deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main
 EOF
-apt-get update
-apt-get install -y kubelet=1.24.0-00 kubeadm=1.24.0-00
+apt update
+apt install -y kubelet=1.28.2-00 kubectl=1.28.2-00 kubeadm=1.28.2-00

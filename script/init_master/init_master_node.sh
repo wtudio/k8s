@@ -3,14 +3,24 @@
 ###############################################
 # 配置，需根据实际节点设置
 ###############################################
-if [ $# != 2 ] ; then
-echo "USAGE: $0 node_hostname local_node_ip"
-echo " e.g.: $0 kube-master-1 192.168.0.107"
-exit 1;
+
+find_first_ipv4_address() {
+    ip addr | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}' | cut -d/ -f1 | head -n 1
+}
+
+if [ $# == 1 ] ; then
+  node_hostname=$1
+  local_node_ip=$(find_first_ipv4_address)
+elif [ $# == 2 ] ; then
+  node_hostname=$1
+  local_node_ip=$2
+else
+  echo "USAGE: $0 node_hostname local_node_ip"
+  echo " e.g.: $0 kube-master-1 192.168.0.107"
+  exit 1;
 fi
 
-node_hostname=$1
-local_node_ip=$2
+echo "init master node, node_hostname: $node_hostname, local_node_ip: $local_node_ip"
 
 ###############################################
 # 修改host
