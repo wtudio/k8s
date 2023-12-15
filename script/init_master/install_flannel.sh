@@ -222,3 +222,5 @@ EOF
 
 kubectl apply -f ./kube-flannel.yml
 
+# 检查
+kubectl get pods -n kube-flannel

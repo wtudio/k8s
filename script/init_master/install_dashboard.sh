@@ -42,9 +42,11 @@ metadata:
   name: kubernetes-dashboard
   namespace: kubernetes-dashboard
 spec:
+  type: NodePort # 使用NodePort方式导出端口
   ports:
     - port: 443
       targetPort: 8443
+      nodePort: 30443  # 指定导出端口
   selector:
     k8s-app: kubernetes-dashboard
 
